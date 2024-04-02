@@ -85,6 +85,7 @@ using GFLAGS_NAMESPACE::SetUsageMessage;
 DEFINE_string(
     benchmarks,
     "fillseq,"
+    "ycsb_a,"
     "fillseqdeterministic,"
     "fillsync,"
     "fillrandom,"
@@ -288,6 +289,9 @@ DEFINE_double(read_random_exp_range, 0.0,
               "num * exp(-r) where r is uniform number from 0 to this value. "
               "The larger the number is, the more skewed the reads are. "
               "Only used in readrandom and multireadrandom benchmarks.");
+
+DEFINE_double(blob_file_discardable_ratio, 0.01,
+              "blob_file_discardable_ratio");
 
 DEFINE_bool(histogram, false, "Print histogram of operation timings");
 
@@ -739,7 +743,7 @@ DEFINE_bool(use_blob_db, false,
             "Open a BlobDB instance. "
             "Required for large value benchmark.");
 
-DEFINE_bool(blob_db_enable_gc, false, "Enable BlobDB garbage collection.");
+DEFINE_bool(blob_db_enable_gc, true, "Enable BlobDB garbage collection.");
 
 DEFINE_bool(blob_db_is_fifo, false, "Enable FIFO eviction strategy in BlobDB.");
 
@@ -2755,6 +2759,8 @@ class Benchmark {
       } else if (name == "fillseq") {
         fresh_db = true;
         method = &Benchmark::WriteSeq;
+      } else if (name == "ycsb_a") {
+        method = &Benchmark::ycsb_a;
       } else if (name == "fillbatch") {
         fresh_db = true;
         entries_per_batch_ = 1000;
@@ -3358,7 +3364,7 @@ class Benchmark {
     titandb::TitanOptions& options = *opts;
 
     assert(db_.db == nullptr);
-
+    options.blob_file_discardable_ratio = FLAGS_blob_file_discardable_ratio;
     options.max_open_files = FLAGS_open_files;
     if (FLAGS_cost_write_buffer_to_cache || FLAGS_db_write_buffer_size != 0) {
       options.write_buffer_manager.reset(
@@ -4081,6 +4087,169 @@ class Benchmark {
 
   double SineRate(double x) {
     return FLAGS_sine_a * sin((FLAGS_sine_b * x) + FLAGS_sine_c) + FLAGS_sine_d;
+  }
+
+  void ErrorExit() {
+    db_.DeleteDBs();
+    for (const DBWithColumnFamilies& dbwcf : multi_dbs_) {
+      delete dbwcf.db;
+    }
+    exit(1);
+  }
+
+  void read_ycsb_a(const std::vector<std::string>& files,
+                 std::vector<std::vector<std::string>>* datas) {
+    int num = 0;
+    for (std::string file_name : files) {
+      // if (num >= 1000000) {
+      //     break;
+      //   }
+      std::ifstream file;
+      file.open(file_name, std::ios::in);
+      if (!file.is_open()) {
+        std::cout << "read file failed" << std::endl;
+        return;
+      }
+      std::string line;
+      // read by row
+      while (std::getline(file, line)) {
+        // if (num >= 10000) {
+        //   break;
+        // }
+        // split by space
+        std::istringstream ss(line);
+        std::vector<std::string> words;
+        std::string word;
+        while (ss >> word) {
+          words.push_back(word);
+        }
+        datas->push_back(words);
+        num++;
+        // if (num%1000==0){
+        //   std::cout<<words[0]<<" "<<words[1]<<" "<<words[2]<<"
+        //   "<<words[3]<<std::endl;
+        // }
+      }
+    }
+  }
+  
+  void ycsb_a(ThreadState* thread){
+    int64_t puts = 0;
+    int64_t gets = 0;
+    int64_t get_found = 0;
+    int64_t seek = 0;
+    int64_t seek_found = 0;
+    int64_t bytes = 0;
+    double total_scan_length = 0;
+    double total_val_size = 0;
+    const int64_t default_value_max = 1 * 1024 * 1024;
+    int64_t value_max = default_value_max;
+    int64_t scan_len_max = FLAGS_mix_max_scan_len;
+    double write_rate = 1000000.0;
+    double read_rate = 1000000.0;
+    bool use_prefix_modeling = false;
+    bool use_random_modeling = false;
+    Status s;
+    RandomGenerator gen;
+    // read the file
+    std::vector<std::string> files = {
+        "/mnt/nvme1n1/zt/YCSB-C/data/workloada-load-10000000-100000000.log_run.formated"
+        // "/mnt/nvme1n1/zt/YCSB-C/data/workloada-load-10000000-50000000.log_run.formated"
+        // "/mnt/nvme1n1/zt/ycsb-workload-gen/data/workloada-run-10000000-50000000.log.formated"
+        // "/mnt/nvme1n1/zt/ycsb-workload-gen/data/workloada-load-10000000-10000000.log.formated"
+        // ,"/mnt/nvme1n1/zt/ycsb-workload-gen/data/workloada-run-10000000-10000000.log.formated"
+    };
+
+    std::cout << "read files: " << std::endl;
+    for (const std::string& file : files) {
+      std::cout << file << std::endl;
+    }
+    
+    std::vector<std::vector<std::string>> datas;
+    int64_t val_size = FLAGS_value_size;
+    std::cout<<"val_size: "<<val_size<<std::endl;
+    read_ycsb_a(files, &datas);
+    std::string query_type;
+    std::cout << "datas.size(): " << datas.size() << std::endl;
+    int i = 0;
+    for (std::vector<std::string> data : datas) {
+      
+      DBWithColumnFamilies* db_with_cfh = SelectDBWithCfh(thread);
+      query_type = data[0];
+      std::string key = data[1];
+
+      // key填充为256位
+      if (key.length() < 256) {
+        int paddingSize = 256 - key.length();
+        key.append(paddingSize, ' ');
+      }
+      ReadOptions read_options;
+      PinnableSlice pinnable_val;
+      // Start the query
+      if (query_type == "READ") {
+        continue;
+        // the Get query
+        gets++;
+
+        if (FLAGS_num_column_families > 1) {
+          s = db_with_cfh->db->Get(read_options,
+                                   db_with_cfh->GetCfh(key.size()), key,
+                                   &pinnable_val);
+        } else {
+          pinnable_val.Reset();
+          s = db_with_cfh->db->Get(read_options,
+                                   db_with_cfh->db->DefaultColumnFamily(), key,
+                                   &pinnable_val);
+        }
+
+        if (s.ok()) {
+          get_found++;
+          bytes += key.size() + pinnable_val.size();
+        } else if (!s.IsNotFound()) {
+          fprintf(stderr, "Get returned an error: %s\n", s.ToString().c_str());
+          abort();
+        }
+
+        if (thread->shared->read_rate_limiter && (gets + seek) % 100 == 0) {
+          thread->shared->read_rate_limiter->Request(100, Env::IO_HIGH,
+                                                     nullptr /*stats*/);
+        }
+        thread->stats.FinishedOps(db_with_cfh, db_with_cfh->db, 1, kRead);
+      } else if (query_type == "INSERT" || query_type == "UPDATE") {
+        // the Put query
+        puts++;
+        // if(FLAGS_)
+        // std::string write_str = gen.Generate(static_cast<unsigned
+        // int>(val_size));
+
+        total_val_size += val_size;
+
+        s = db_with_cfh->db->Put(
+            write_options_, key,
+            gen.Generate(static_cast<unsigned int>(val_size)));
+        if (!s.ok()) {
+          fprintf(stderr, "put error: %s\n", s.ToString().c_str());
+          ErrorExit();
+        }
+
+        if (thread->shared->write_rate_limiter && puts % 100 == 0) {
+          thread->shared->write_rate_limiter->Request(100, Env::IO_HIGH,
+                                                      nullptr /*stats*/);
+        }
+        thread->stats.FinishedOps(db_with_cfh, db_with_cfh->db, 1, kWrite);
+      }
+    }
+    char msg[256];
+    snprintf(msg, sizeof(msg),
+             "( Gets:%" PRIu64 " Puts:%" PRIu64 " Seek:%" PRIu64
+             ", reads %" PRIu64 " in %" PRIu64
+             " found, "
+             "avg size: %.1f value, %.1f scan)\n",
+             gets, puts, seek, get_found + seek_found, gets + seek,
+             total_val_size / puts, total_scan_length / seek);
+
+    thread->stats.AddBytes(bytes);
+    thread->stats.AddMessage(msg);
   }
 
   void DoWrite(ThreadState* thread, WriteMode write_mode) {
