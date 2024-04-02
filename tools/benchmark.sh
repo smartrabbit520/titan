@@ -1,13 +1,13 @@
 #!/usr/bin/env bash
 # REQUIRE: titandb_bench binary exists in the current directory
 
-if [ $# -ne 1 ]; then
+if [ $# -lt 1 ]; then
   echo -n "./benchmark.sh [bulkload/fillseq/overwrite/filluniquerandom/"
   echo    "readrandom/readwhilewriting/readwhilemerging/updaterandom/"
   echo    "mergerandom/randomtransaction/compact]"
   exit 0
 fi
-
+syncval="1"
 # Make it easier to run only the compaction test. Getting valid data requires
 # a number of iterations and having an ability to run the test separately from
 # rest of the benchmarks helps.
@@ -45,11 +45,13 @@ mb_written_per_sec=${MB_WRITE_PER_SEC:-0}
 # Only for tests that do range scans
 num_nexts_per_seek=${NUM_NEXTS_PER_SEEK:-100}
 cache_size=${CACHE_SIZE:-$((1 * G))}
+blob_file_discardable_ratio=${BLOB_FILE_DISCARDABLE_RATIO:-0.3}
 compression_max_dict_bytes=${COMPRESSION_MAX_DICT_BYTES:-0}
 compression_type=${COMPRESSION_TYPE:-snappy}
 duration=${DURATION:-0}
 
-num_keys=${NUM_KEYS:-$((1 * G))}
+# num_keys=${NUM_KEYS:-$((1 * G))}
+num_keys=10000000
 key_size=${KEY_SIZE:-20}
 value_size=${VALUE_SIZE:-100}
 
@@ -72,7 +74,7 @@ const_params="
   \
   --num_levels=7 \
   --write_buffer_size=$((128 * M)) \
-  --level_compaction_dynamic_level_bytes=true \
+  --level_compaction_dynamic_level_bytes=false \
   --max_write_buffer_number=5 \
   --target_file_size_base=$((8 * M)) \
   --max_bytes_for_level_base=$((512 * M)) \
@@ -81,8 +83,9 @@ const_params="
   --max_background_jobs=6 \
   --titan_max_background_gc=6
   --open_files=40960 \
-  --statistics=1 \
+
   --verify_checksum=1 \
+  --histogram=1 \
   \
   --bytes_per_sync=$((1 * M)) \
   --wal_bytes_per_sync=$((512 * K)) \
@@ -93,7 +96,8 @@ if [ $duration -gt 0 ]; then
   const_params="$const_params --duration=$duration"
 fi
 
-#
+#  delete --statistics=1 \
+
 # Tune values for level and universal compaction.
 # For universal compaction, these level0_* options mean total sorted of runs in
 # LSM. In level-based compaction, it means number of L0 files.
@@ -147,7 +151,7 @@ function run_bulkload {
 
   # TITAN: The implementation of memtable is changed from vector to default skiplist. Because GC in titan need to get in memtable. Vector will cause poor performance.
   echo "Bulk loading $num_keys random keys"
-  cmd="./titandb_bench --benchmarks=fillrandom \
+  cmd="../build/titandb_bench --benchmarks=fillrandom \
        $const_params \
        --use_existing_db=0 \
        --disable_auto_compactions=1 \
@@ -279,7 +283,7 @@ function run_fillseq {
   fi
 
   echo "Loading $num_keys keys sequentially"
-  cmd="./titandb_bench --benchmarks=fillseq \
+  cmd="../build/titandb_bench --benchmarks=fillseq \
        --use_existing_db=0 \
        $const_params \
        --disable_wal=$1 \
@@ -307,6 +311,46 @@ function run_change {
   echo $cmd | tee $output_dir/${out_name}
   eval $cmd
   summarize_result $output_dir/${out_name} ${operation}.t${num_threads} $operation
+}
+
+function run_ycsb_a {
+  output_name=$1
+  grep_name=$2
+  benchmarks=$3
+  op_trace_file_name=""
+  # op_trace_file_name="$output_dir/benchmark_${output_name}.t${num_threads}.s${syncval}.op_trace"
+  if [ ! -z $op_trace_file ]; then
+    op_trace_file_name=$op_trace_file
+  fi
+  echo "Do $num_keys random $output_name"
+  log_file_name="$output_dir/benchmark_${output_name}.t${num_threads}.s${syncval}.log"
+  # time_cmd=$( get_cmd $log_file_name.time )
+  # gdb --args
+  # cmd="$time_cmd  gdb --args ./db_bench --benchmarks=$benchmarks,stats \
+  cmd="../build/titandb_bench --benchmarks=$benchmarks,stats \
+       --use_existing_db=0 \
+       --sync=$syncval \
+       $const_params \
+       --threads=$num_threads \
+       --merge_operator=\"put\" \
+       --seed=$( date +%s ) \
+       --report_file=${log_file_name}.r.csv \
+       --mix_get_ratio=0.5 \
+       --mix_put_ratio=0.5 \
+       --open_files=512 \
+       --blob_file_discardable_ratio=$blob_file_discardable_ratio \
+       2>&1 | tee -a $log_file_name"
+  if [[ "$job_id" != "" ]]; then
+    echo "Job ID: ${job_id}" > $log_file_name
+    echo $cmd | tee -a $log_file_name
+  else
+    echo $cmd | tee $log_file_name
+  fi
+  # start_stats $log_file_name.stats
+  # space_monitor_file_name="$output_dir/dir_size.log"
+  eval $cmd
+  # stop_stats $log_file_name.stats
+  summarize_result $log_file_name ${output_name}.t${num_threads}.s${syncval} $grep_name
 }
 
 function run_filluniquerandom {
@@ -432,6 +476,8 @@ for job in ${jobs[@]}; do
     run_change overwrite
   elif [ $job = updaterandom ]; then
     run_change updaterandom
+  elif [ $job = ycsb_a ]; then
+    run_ycsb_a ycsb_a ycsb_a ycsb_a
   elif [ $job = mergerandom ]; then
     run_change mergerandom
   elif [ $job = filluniquerandom ]; then
