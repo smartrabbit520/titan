@@ -24,13 +24,13 @@ function call_run_blob() {
 }
 
 now_time=$(date +"%Y-%m-%d-%H:%M:%S")
-db_info=titan_${now_time}_ycsb_a_100M_0.2
-db_dir=/mnt/nvme1n1/xq/mlsm/database_comparison/${db_info}
+db_info=titan_${now_time}_ycsb_a_100M_0.99_adaptive_sst_file_size
+db_dir=/mnt/nvme0n1/xq/mlsm/database_comparison/${db_info}
 num_keys=5000000
 enable_blob_file=1
 enable_blob_gc=true
 # value_sizes=(1024 4096 16384 65536)
-value_sizes=(1024 4096)
+value_sizes=(4096 1024)
 # value_size=1024
 git_result_dir=/mnt/nvme1n1/xq/git_result/rocksdb_kv_sep/result/${db_info}
 

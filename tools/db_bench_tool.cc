@@ -4153,7 +4153,8 @@ class Benchmark {
     RandomGenerator gen;
     // read the file
     std::vector<std::string> files = {
-        "/mnt/nvme1n1/zt/YCSB-C/data/workloada-load-10000000-100000000.log_run.formated"
+        "/mnt/nvme1n1/zt/YCSB-C/data/workloada-load-0.99-10000000-100000000.log_run.formated"
+        // "/mnt/nvme1n1/zt/YCSB-C/data/workloada-load-10000000-100000000.log_run.formated"
         // "/mnt/nvme1n1/zt/YCSB-C/data/workloada-load-10000000-50000000.log_run.formated"
         // "/mnt/nvme1n1/zt/ycsb-workload-gen/data/workloada-run-10000000-50000000.log.formated"
         // "/mnt/nvme1n1/zt/ycsb-workload-gen/data/workloada-load-10000000-10000000.log.formated"
