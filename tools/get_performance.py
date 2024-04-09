@@ -267,9 +267,10 @@ for data_with_param_dir in dirs:
     read_performance(benchmark_log_path)
     
 # Create a DataFrame from the performance metrics dictionary
-df = pd.DataFrame(performance_metrics, indexs=blob_file_discardable_ratio)
+df = pd.DataFrame(performance_metrics, index=blob_file_discardable_ratio)
 df.insert(0, 'blob_file_discardable_ratio', blob_file_discardable_ratio)
 df.insert(1, 'value_size', value_size)
+df = df.sort_values('blob_file_discardable_ratio')
 print(df)
 
 # Output to data_dir

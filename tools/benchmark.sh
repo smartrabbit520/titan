@@ -49,11 +49,13 @@ blob_file_discardable_ratio=${BLOB_FILE_DISCARDABLE_RATIO:-0.3}
 compression_max_dict_bytes=${COMPRESSION_MAX_DICT_BYTES:-0}
 compression_type=${COMPRESSION_TYPE:-snappy}
 duration=${DURATION:-0}
+bench_args=$*
 
 # num_keys=${NUM_KEYS:-$((1 * G))}
 num_keys=10000000
 key_size=${KEY_SIZE:-20}
 value_size=${VALUE_SIZE:-100}
+write_buffer_size=${WRITE_BUFFER_SIZE:-$((128 * M))}
 
 const_params="
   --db=$DB_DIR \
@@ -90,7 +92,10 @@ const_params="
   --bytes_per_sync=$((1 * M)) \
   --wal_bytes_per_sync=$((512 * K)) \
   \
-  --use_titan=$TITAN"
+  --write_buffer_size=$write_buffer_size \
+  --use_titan=$TITAN \
+  $bench_args"
+
 
 if [ $duration -gt 0 ]; then
   const_params="$const_params --duration=$duration"

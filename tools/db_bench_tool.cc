@@ -1012,6 +1012,10 @@ DEFINE_double(sine_d, 1, "D in f(x) = A sin(bx + c) + d");
 DEFINE_bool(rate_limit_bg_reads, false,
             "Use options.rate_limiter on compaction reads");
 
+DEFINE_string(
+    read_ycsb_file, "error",
+    "read_ycsb_file");
+
 DEFINE_uint64(
     benchmark_write_rate_limit, 0,
     "If non-zero, db_bench will rate-limit the writes going into RocksDB. This "
@@ -4153,7 +4157,12 @@ class Benchmark {
     RandomGenerator gen;
     // read the file
     std::vector<std::string> files = {
-        "/mnt/nvme1n1/zt/YCSB-C/data/workloada-load-10000000-100000000.log_run.formated"
+        FLAGS_read_ycsb_file
+        // "/mnt/nvme0n1/YCSB-C/data/workloada_1024kb_100GB_0.9_zipfian.log_run.formated"
+        // "/mnt/nvme0n1/YCSB-C/data/workloada_16384kb_100GB_0.9_zipfian.log_run.formated"
+        // "/mnt/nvme0n1/YCSB-C/data/workloada_65536kb_100GB_0.9_zipfian.log_run.formated"
+        // "/mnt/nvme0n1/YCSB-C/data/workloada_4096kb_100GB_0.9_zipfian.log_run.formated"
+        // "/mnt/nvme1n1/zt/YCSB-C/data/workloada-load-10000000-100000000.log_run.formated"
         // "/mnt/nvme1n1/zt/YCSB-C/data/workloada-load-10000000-50000000.log_run.formated"
         // "/mnt/nvme1n1/zt/ycsb-workload-gen/data/workloada-run-10000000-50000000.log.formated"
         // "/mnt/nvme1n1/zt/ycsb-workload-gen/data/workloada-load-10000000-10000000.log.formated"
