@@ -270,6 +270,7 @@ for data_with_param_dir in dirs:
 df = pd.DataFrame(performance_metrics, index=blob_file_discardable_ratio)
 df.insert(0, 'blob_file_discardable_ratio', blob_file_discardable_ratio)
 df.insert(1, 'value_size', value_size)
+df = df.sort_values(['blob_file_discardable_ratio', 'value_size'])
 print(df)
 
 # Output to data_dir

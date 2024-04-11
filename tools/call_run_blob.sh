@@ -24,17 +24,20 @@ function call_run_blob() {
 }
 
 now_time=$(date +"%Y-%m-%d-%H:%M:%S")
+now_time=2024-04-08-18:05:29
 db_info=titan_${now_time}_ycsb_a_100M_0.99_adaptive_sst_file_size
 db_dir=/mnt/nvme0n1/xq/mlsm/database_comparison/${db_info}
 num_keys=5000000
 enable_blob_file=1
 enable_blob_gc=true
 # value_sizes=(1024 4096 16384 65536)
-value_sizes=(4096 1024)
+# value_sizes=(4096 1024)
+value_sizes=(1024)
 # value_size=1024
 git_result_dir=/mnt/nvme1n1/xq/git_result/rocksdb_kv_sep/result/${db_info}
 
-blob_file_discardable_ratios=(0.2 0.4 0.6 0.8 1.0 0.0)
+# blob_file_discardable_ratios=(0.2 0.4 0.6 0.8 1.0 0.0)
+blob_file_discardable_ratios=(0.6)
 
 # with_gc_dir=${db_dir}/with_gc_${blob_file_discardable_ratio}
 for blob_file_discardable_ratio in "${blob_file_discardable_ratios[@]}" ; do
