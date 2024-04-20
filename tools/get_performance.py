@@ -27,6 +27,7 @@ performance_metrics = {
     'lsm_size': [],
     'read_gb': [],
     'write_gb': [],
+    'write_blob': [],
     'write_amp': [],
     'write_microsecond_median': [],
     'write_microsecond_average': [],
@@ -235,6 +236,18 @@ def read_performance(benchmark_log_path):
     if blob_size[-1].upper() == 'G':
         blob_size = blob_size[:-1]
         
+    ### part 8
+    write_blob = 0
+    LOG_PATH = os.path.join(os.path.dirname(benchmark_log_path), "LOG")
+    with open(LOG_PATH, 'r') as file:
+        lines = file.readlines()
+        for line in lines:
+            if "Titan GC job completed" in line:
+                numbers = re.findall(r'\d+\.?\d*', line)
+                numbers_size = len(numbers)
+                write_blob += int(numbers[numbers_size - 6])
+        write_blob = float(write_blob) / 1000000000
+                
     performance_metrics['flush_write'].append(flush_write)
     performance_metrics['write_rate'].append(write_rate)
     performance_metrics['blob_file_count'].append(blob_file_count)
@@ -249,6 +262,7 @@ def read_performance(benchmark_log_path):
     performance_metrics['lsm_size'].append(lsm_size)
     performance_metrics['read_gb'].append(read_gb)
     performance_metrics['write_gb'].append(write_gb)
+    performance_metrics['write_blob'].append(write_blob)
     performance_metrics['write_amp'].append(write_amp)
     performance_metrics['write_microsecond_median'].append(write_microsecond_median)
     performance_metrics['write_microsecond_average'].append(write_microsecond_average)
@@ -258,7 +272,7 @@ dirs=os.listdir(data_dir)
 
 # delete the dirs that not start with "with_gc"
 dirs = [d for d in dirs if os.path.isdir(os.path.join(data_dir, d))]
-value_size = [name.split('_')[2] for name in dirs]
+value_size = [int(name.split('_')[2]) for name in dirs]
 blob_file_discardable_ratio = [name.split('_')[7] for name in dirs]
 
 for data_with_param_dir in dirs:
@@ -270,7 +284,7 @@ for data_with_param_dir in dirs:
 df = pd.DataFrame(performance_metrics, index=blob_file_discardable_ratio)
 df.insert(0, 'blob_file_discardable_ratio', blob_file_discardable_ratio)
 df.insert(1, 'value_size', value_size)
-df = df.sort_values('blob_file_discardable_ratio')
+df = df.sort_values(['blob_file_discardable_ratio', 'value_size'])
 print(df)
 
 # Output to data_dir
@@ -278,6 +292,7 @@ output_file = os.path.join(data_dir, "performance_metrics.csv")
 df.to_csv(output_file)
 print("Output to", output_file)
 
+# draw=False
 draw=False
 if not draw:
     exit()
