@@ -2,6 +2,7 @@ import re
 import os
 import sys
 import pandas as pd
+import subprocess
 
 # data_dir="/mnt/nvme1n1/xq/mlsm/database_comparison/titan_3.16_ycsb_a_with_param"
 data_dir = sys.argv[1]
@@ -28,6 +29,7 @@ performance_metrics = {
     'read_gb': [],
     'write_gb': [],
     'write_blob': [],
+    'write_blob_overwrite': [],
     'write_amp': [],
     'write_microsecond_median': [],
     'write_microsecond_average': [],
@@ -238,15 +240,26 @@ def read_performance(benchmark_log_path):
         
     ### part 8
     write_blob = 0
+    write_blob_overwrite = 0
     LOG_PATH = os.path.join(os.path.dirname(benchmark_log_path), "LOG")
     with open(LOG_PATH, 'r') as file:
         lines = file.readlines()
         for line in lines:
             if "Titan GC job completed" in line:
-                numbers = re.findall(r'\d+\.?\d*', line)
-                numbers_size = len(numbers)
-                write_blob += int(numbers[numbers_size - 6])
+                # Find the number after ", written:"
+                match_written = re.search(r", written:(\d+\.?\d*)", line)
+                if match_written:
+                    write_blob += int(match_written.group(1))
+                # Find the number after ", bytes overwritten:"
+                match_overwritten = re.search(r", bytes overwritten:(\d+\.?\d*)", line)
+                if match_overwritten:
+                    write_blob_overwrite += int(match_overwritten.group(1))
+                    
+        command = f"grep 'OnFlushCompleted.*output blob' {LOG_PATH} | awk '{{print $12}}' | awk -F':' '{{print $1}}' | tr -d '.' | awk '{{s+=$1}} END {{print s}}'"
+        flush_blob_write = subprocess.check_output(command, shell=True)
+        write_blob += int(flush_blob_write.decode())
         write_blob = float(write_blob) / 1000000000
+        wrie_blob_overwrite = float(write_blob_overwrite) / 1000000000
                 
     performance_metrics['flush_write'].append(flush_write)
     performance_metrics['write_rate'].append(write_rate)
@@ -263,6 +276,7 @@ def read_performance(benchmark_log_path):
     performance_metrics['read_gb'].append(read_gb)
     performance_metrics['write_gb'].append(write_gb)
     performance_metrics['write_blob'].append(write_blob)
+    performance_metrics['write_blob_overwrite'].append(write_blob_overwrite)
     performance_metrics['write_amp'].append(write_amp)
     performance_metrics['write_microsecond_median'].append(write_microsecond_median)
     performance_metrics['write_microsecond_average'].append(write_microsecond_average)
@@ -272,7 +286,7 @@ dirs=os.listdir(data_dir)
 
 # delete the dirs that not start with "with_gc"
 dirs = [d for d in dirs if os.path.isdir(os.path.join(data_dir, d))]
-value_size = [int(name.split('_')[2]) for name in dirs]
+value_size = [name.split('_')[2] for name in dirs]
 blob_file_discardable_ratio = [name.split('_')[7] for name in dirs]
 
 for data_with_param_dir in dirs:

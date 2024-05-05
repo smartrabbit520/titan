@@ -787,6 +787,9 @@ DEFINE_uint64(blob_db_bytes_per_sync, 0, "Bytes to sync blob file at.");
 DEFINE_uint64(blob_db_file_size, 256 * 1024 * 1024,
               "Target size of each blob file.");
 
+DEFINE_uint64(blob_file_target_size, 256 * 1024 * 1024,
+              "blob_file_target_size");
+          
 // Secondary DB instance Options
 DEFINE_bool(use_secondary_db, false,
             "Open a RocksDB secondary instance. A primary instance can be "
@@ -3805,6 +3808,7 @@ class Benchmark {
     opts->max_background_gc = FLAGS_titan_max_background_gc;
     opts->min_gc_batch_size = 128 << 20;
     opts->blob_file_compression = FLAGS_compression_type_e;
+    opts->blob_file_target_size= FLAGS_blob_file_target_size;
     if (FLAGS_titan_blob_cache_size > 0) {
       opts->blob_cache = NewLRUCache(FLAGS_titan_blob_cache_size);
     }

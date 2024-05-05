@@ -109,14 +109,19 @@ BlobGCJob::~BlobGCJob() {
 
   // log data
   TITAN_LOG_INFO(db_options_.info_log,
-                 "[%s] Titan GC job completed, read:%" PRIu64 ", written:%" PRIu64
-                 ", overwritten:%" PRIu64 ", relocated:%" PRIu64 ", fallback:%" PRIu64
-                 ", new files:%" PRIu64 ", total files:%" PRIu64,
-                 blob_gc_->column_family_handle()->GetName().c_str(),
-                 metrics_.gc_bytes_read, metrics_.gc_bytes_written,
-                 metrics_.gc_bytes_overwritten, metrics_.gc_bytes_relocated,
-                 metrics_.gc_bytes_fallback, metrics_.gc_num_new_files,
-                 metrics_.gc_num_files);
+                  "[%s] Titan GC job completed, read:%" PRIu64 ", written:%" PRIu64
+                  ", keys overwritten:%" PRIu64 ", bytes overwritten:%" PRIu64
+                  ", keys relocated:%" PRIu64 ", bytes relocated:%" PRIu64
+                  ", keys fallback:%" PRIu64 ", bytes fallback:%" PRIu64
+                  ", new files:%" PRIu64 ", total files:%" PRIu64
+                  ", read LSM micros:%" PRIu64 ", update LSM micros:%" PRIu64,
+                  blob_gc_->column_family_handle()->GetName().c_str(),
+                  metrics_.gc_bytes_read, metrics_.gc_bytes_written,
+                  metrics_.gc_num_keys_overwritten, metrics_.gc_bytes_overwritten,
+                  metrics_.gc_num_keys_relocated, metrics_.gc_bytes_relocated,
+                  metrics_.gc_num_keys_fallback, metrics_.gc_bytes_fallback,
+                  metrics_.gc_num_new_files, metrics_.gc_num_files,
+                  metrics_.gc_read_lsm_micros, metrics_.gc_update_lsm_micros);
 
   // flush metrics
   RecordTick(statistics(stats_), TITAN_GC_BYTES_READ, metrics_.gc_bytes_read);
