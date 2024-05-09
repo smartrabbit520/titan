@@ -28,8 +28,11 @@ performance_metrics = {
     'lsm_size': [],
     'read_gb': [],
     'write_gb': [],
+    'flush_write_blob': [],
+    'gc_write_blob': [],
     'write_blob': [],
-    'write_blob_overwrite': [],
+    'gc_write_blob_overwrite': [],
+    'write_all': [],
     'write_amp': [],
     'write_microsecond_median': [],
     'write_microsecond_average': [],
@@ -239,8 +242,8 @@ def read_performance(benchmark_log_path):
         blob_size = blob_size[:-1]
         
     ### part 8
-    write_blob = 0
-    write_blob_overwrite = 0
+    gc_write_blob = 0
+    gc_write_blob_overwrite = 0
     LOG_PATH = os.path.join(os.path.dirname(benchmark_log_path), "LOG")
     with open(LOG_PATH, 'r') as file:
         lines = file.readlines()
@@ -249,18 +252,37 @@ def read_performance(benchmark_log_path):
                 # Find the number after ", written:"
                 match_written = re.search(r", written:(\d+\.?\d*)", line)
                 if match_written:
-                    write_blob += int(match_written.group(1))
+                    gc_write_blob += int(match_written.group(1))
                 # Find the number after ", bytes overwritten:"
                 match_overwritten = re.search(r", bytes overwritten:(\d+\.?\d*)", line)
                 if match_overwritten:
-                    write_blob_overwrite += int(match_overwritten.group(1))
+                    gc_write_blob_overwrite += int(match_overwritten.group(1))
                     
         command = f"grep 'OnFlushCompleted.*output blob' {LOG_PATH} | awk '{{print $12}}' | awk -F':' '{{print $1}}' | tr -d '.' | awk '{{s+=$1}} END {{print s}}'"
         flush_blob_write = subprocess.check_output(command, shell=True)
-        write_blob += int(flush_blob_write.decode())
-        write_blob = float(write_blob) / 1000000000
-        wrie_blob_overwrite = float(write_blob_overwrite) / 1000000000
-                
+        gc_write_blob += int(flush_blob_write.decode())
+        gc_write_blob = float(gc_write_blob) / 1000000000
+        gc_write_blob_overwrite = float(gc_write_blob_overwrite) / 1000000000
+    
+    # Find the line with "val_size: 4096"
+    val_size_line = next((line for line in benchmark_log if "val_size: " in line), None)
+    val_size_info = int(re.findall(r'\d+', val_size_line)[0])
+    
+    pattern = r"Puts:(\d+)"
+    # Find all occurrences of the pattern in the benchmark_log
+    matches = re.findall(pattern, ''.join(benchmark_log))
+    # Get the last match
+    print(matches)
+    last_match = matches[-1]
+    # Get the number from the match
+    write_ops = int(last_match)
+    
+    key_size = 256
+    flush_write_blob = (key_size + val_size_info) * write_ops
+    flush_write_blob = flush_write_blob / 1000000000
+    write_blob = flush_write_blob + gc_write_blob
+    write_all = float(write_gb) + write_blob
+
     performance_metrics['flush_write'].append(flush_write)
     performance_metrics['write_rate'].append(write_rate)
     performance_metrics['blob_file_count'].append(blob_file_count)
@@ -275,8 +297,11 @@ def read_performance(benchmark_log_path):
     performance_metrics['lsm_size'].append(lsm_size)
     performance_metrics['read_gb'].append(read_gb)
     performance_metrics['write_gb'].append(write_gb)
+    performance_metrics['flush_write_blob'].append(flush_write_blob)
+    performance_metrics['gc_write_blob'].append(gc_write_blob)
     performance_metrics['write_blob'].append(write_blob)
-    performance_metrics['write_blob_overwrite'].append(write_blob_overwrite)
+    performance_metrics['write_all'].append(write_all)
+    performance_metrics['gc_write_blob_overwrite'].append(gc_write_blob_overwrite)
     performance_metrics['write_amp'].append(write_amp)
     performance_metrics['write_microsecond_median'].append(write_microsecond_median)
     performance_metrics['write_microsecond_average'].append(write_microsecond_average)
