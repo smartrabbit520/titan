@@ -102,6 +102,16 @@ def read_performance(benchmark_log_path):
 
     # lsm-tree size
     lsm_size = numbers[2]
+    lsm_size_index = text.index(lsm_size)
+    
+    if (text[lsm_size_index+len(lsm_size):].startswith(' MB')):
+        # MB
+        lsm_size = float(lsm_size) / 1024
+        
+    elif (text[lsm_size_index+len(lsm_size):].startswith(' GB')):
+        # GB
+        lsm_size = float(lsm_size)
+        
     # Read GB: rocksdb/titan:4 terarkdb: 5
     read_gb = numbers[4]
     # Write GB: rocksdb/titan:7 terarkdb: 8
@@ -266,6 +276,7 @@ def read_performance(benchmark_log_path):
     
     # Find the line with "val_size: 4096"
     val_size_line = next((line for line in benchmark_log if "val_size: " in line), None)
+    print(val_size_line)
     val_size_info = int(re.findall(r'\d+', val_size_line)[0])
     
     pattern = r"Puts:(\d+)"

@@ -110,6 +110,8 @@ op_trace_file=${OP_TRACE_FILE:-""}
 num_threads=${NUM_THREADS:-16}
 
 compression_type=${COMPRESSION_TYPE:-lz4}
+run_workload_name=${RUN_WORKLOAD_NAME:-"bulkload"}
+read_systor_files=${READ_SYSTOR_FILES:-""}
 
 db_size=${DB_SIZE:-$((1 * T))}
 value_size=${VALUE_SIZE:-$((1 * K))}
@@ -221,6 +223,7 @@ PARAMS_GC="--blob_file_discardable_ratio=$blob_file_discardable_ratio \
             --write_buffer_size=$write_buffer_size \
             --read_ycsb_file=$read_ycsb_file \
             --blob_file_target_size=$blob_file_target_size \
+            --read_systor_files=$read_systor_files \
             --titan_max_background_gc=$titan_max_background_gc \
             --target_file_size_base=$target_file_size_base"
 # bulk load (using fillrandom) + compact
@@ -228,7 +231,7 @@ PARAMS_GC="--blob_file_discardable_ratio=$blob_file_discardable_ratio \
 # overwrite + waitforcompaction
 # env -u DURATION -S "$ENV_VARS" ./tools/benchmark.sh overwrite "$PARAMS_GC"
 
-env -u DURATION -S "$ENV_VARS" ./benchmark.sh ycsb_a "$PARAMS_GC"
+env -u DURATION -S "$ENV_VARS" ./benchmark.sh "$run_workload_name" "$PARAMS_GC"
 # readwhilewriting
 # env -S "$ENV_VARS_D" ./tools/benchmark.sh readwhilewriting "$PARAMS_GC"
 # echo "$PARAMS_GC"
