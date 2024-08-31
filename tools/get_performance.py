@@ -7,11 +7,29 @@ import subprocess
 # data_dir="/mnt/nvme1n1/xq/mlsm/database_comparison/titan_3.16_ycsb_a_with_param"
 data_dir = sys.argv[1]
 
-if len(sys.argv) >= 3:
-    benchmark_log_name = sys.argv[2]
-else:
+if "ycsb_a" in data_dir:
     benchmark_log_name = "benchmark_ycsb_a.t1.s1.log"
-
+elif "ycsb_b" in data_dir:
+    benchmark_log_name = "benchmark_ycsb_b.t1.s1.log"
+elif "ycsb_c" in data_dir:
+    benchmark_log_name = "benchmark_ycsb_c.t1.s1.log"
+elif "ycsb_d" in data_dir:
+    benchmark_log_name = "benchmark_ycsb_d.t1.s1.log"
+elif "ycsb_e" in data_dir:
+    benchmark_log_name = "benchmark_ycsb_e.t1.s1.log"
+elif "ycsb_f" in data_dir:
+    benchmark_log_name = "benchmark_ycsb_f.t1.s1.log"
+elif "systor" in data_dir:
+    benchmark_log_name = "benchmark_systor.t1.s1.log"
+elif "tencent" in data_dir:
+    benchmark_log_name = "benchmark_tencent.t1.s1.log"
+elif len(sys.argv) >= 3:
+        benchmark_log_name = sys.argv[2]
+else:
+    print("Invalid data_dir")
+    exit()
+    
+    
 # Create a dictionary to store the performance metrics
 performance_metrics = {
     'flush_write': [],
@@ -268,31 +286,15 @@ def read_performance(benchmark_log_path):
                 if match_overwritten:
                     gc_write_blob_overwrite += int(match_overwritten.group(1))
                     
-        command = f"grep 'OnFlushCompleted.*output blob' {LOG_PATH} | awk '{{print $12}}' | awk -F':' '{{print $1}}' | tr -d '.' | awk '{{s+=$1}} END {{print s}}'"
-        flush_blob_write = subprocess.check_output(command, shell=True)
-        gc_write_blob += int(flush_blob_write.decode())
-        gc_write_blob = float(gc_write_blob) / 1000000000
-        gc_write_blob_overwrite = float(gc_write_blob_overwrite) / 1000000000
+    command = f"grep 'OnFlushCompleted.*output blob' {LOG_PATH} | awk '{{print $12}}' | awk -F':' '{{print $1}}' | tr -d '.' | awk '{{s+=$1}} END {{print s}}'"
+    flush_write_blob = subprocess.check_output(command, shell=True)
     
-    # Find the line with "val_size: 4096"
-    val_size_line = next((line for line in benchmark_log if "val_size: " in line), None)
-    print(val_size_line)
-    val_size_info = int(re.findall(r'\d+', val_size_line)[0])
-    
-    pattern = r"Puts:(\d+)"
-    # Find all occurrences of the pattern in the benchmark_log
-    matches = re.findall(pattern, ''.join(benchmark_log))
-    # Get the last match
-    print(matches)
-    last_match = matches[-1]
-    # Get the number from the match
-    write_ops = int(last_match)
-    
-    key_size = 256
-    flush_write_blob = (key_size + val_size_info) * write_ops
-    flush_write_blob = flush_write_blob / 1000000000
-    write_blob = flush_write_blob + gc_write_blob
-    write_all = float(write_gb) + write_blob
+    flush_write_blob = round(float(flush_write_blob.decode())/(1024 * 1024 * 1024), 2)
+    gc_write_blob = round(float(gc_write_blob) / (1024 * 1024 * 1024), 2)
+    gc_write_blob_overwrite = round(float(gc_write_blob_overwrite) / (1024 * 1024 * 1024), 2)
+
+    write_blob = round(flush_write_blob + gc_write_blob, 2)
+    write_all = round(float(write_gb) + write_blob, 2)
 
     performance_metrics['flush_write'].append(flush_write)
     performance_metrics['write_rate'].append(write_rate)
