@@ -27,35 +27,31 @@ function call_run_blob() {
    WRITE_BUFFER_SIZE=$write_buffer_size NUM_THREADS=1 \
    BLOB_FILE_DISCARDABLE_RATIO=$blob_file_discardable_ratio \
    ./run_blob_bench.sh
-
 }
 
 now_time=$(date +"%Y-%m-%d-%H:%M:%S")
+# now_time=2024-04-26-09:59:02
 
 num_keys=5000000
 enable_blob_file=1
 enable_blob_gc=true
 read_ycsb_files=(
-  # "/mnt/nvme0n1/YCSB-C/data/workloadanew_50M_0.2_zipfian.log_run.formated"
-  # "/mnt/nvme0n1/YCSB-C/data/workloadanew_50M_0.5_zipfian.log_run.formated"
-  # "/mnt/nvme0n1/YCSB-C/data/workloadanew_50M_0.9_zipfian.log_run.formated"
-  "/mnt/nvme0n1/YCSB-C/data/workloadanew_100M_0.2_zipfian.log_run.formated"
-  "/mnt/nvme0n1/YCSB-C/data/workloadanew_100M_0.5_zipfian.log_run.formated"
-  "/mnt/nvme0n1/YCSB-C/data/workloadanew_100M_0.9_zipfian.log_run.formated"
-  # "/mnt/nvme0n1/YCSB-C/data/workloada_50M_0.2_zipfian.log_run.formated"
-  # "/mnt/nvme0n1/YCSB-C/data/workloada_50M_0.5_zipfian.log_run.formated"
-  # "/mnt/nvme0n1/YCSB-C/data/workloada_50M_0.9_zipfian.log_run.formated"
-  # "/mnt/nvme0n1/YCSB-C/data/workloada_100M_0.2_zipfian.log_run.formated"
-  # "/mnt/nvme0n1/YCSB-C/data/workloada_100M_0.5_zipfian.log_run.formated"
-  # "/mnt/nvme0n1/YCSB-C/data/workloada_100M_0.9_zipfian.log_run.formated"
+  /mnt/nvme0n1/YCSB-C/data/workloada_200GB_0.99_65536_zipfian.log_run.formated
+  /mnt/nvme0n1/YCSB-C/data/workloada_200GB_0.99_16384_zipfian.log_run.formated
+  /mnt/nvme0n1/YCSB-C/data/workloada_200GB_0.99_4096_zipfian.log_run.formated
+  /mnt/nvme0n1/YCSB-C/data/workloada_200GB_0.99_1024_zipfian.log_run.formated
 )
-value_sizes=(4096 1024)
-# blob_file_discardable_ratios=(0.2 0.25)
+value_sizes=(65536 16384 4096 1024)
+# value_sizes=(1024)
+
 blob_file_discardable_ratios=(0.2)
 
-for read_ycsb_file in "${read_ycsb_files[@]}" ; do {
+for ((i=0; i<${#read_ycsb_files[@]}; i++)); do {
+# for read_ycsb_file in "${read_ycsb_files[@]}" ; do {
+  read_ycsb_file=${read_ycsb_files[$i]}
+  value_size=${value_sizes[$i]}
     echo "read_ycsb_file: $read_ycsb_file"
-    workload_info="ycsb_a_$(basename "$read_ycsb_file" | awk -F '_' '{print $2"_"$3"_"$4}' | awk -F '.' '{print $1"."$2}')"
+    workload_info="ycsb_a_100GB_0.9_zipfian_adaptive_sst_file_size"
     db_info=titan_${now_time}_${workload_info}
     db_dir=/mnt/nvme0n1/xq/mlsm/database_comparison/${db_info}
     git_result_dir=/mnt/nvme0n1/xq/git_result/rocksdb_kv_sep/result/${db_info}
@@ -65,7 +61,7 @@ for read_ycsb_file in "${read_ycsb_files[@]}" ; do {
       mkdir -p "$db_dir"
     fi
 
-    for value_size in ${value_sizes[@]} ; do {
+    # for value_size in ${value_sizes[@]} ; do {
       echo "value_size: $value_size"
 
       for blob_file_discardable_ratio in "${blob_file_discardable_ratios[@]}" ; do {
@@ -105,10 +101,11 @@ for read_ycsb_file in "${read_ycsb_files[@]}" ; do {
 
         find $with_gc_dir -type f -name "*.blob" -delete
         find $with_gc_dir -type f -name "*.sst" -delete
-      } done
-    } done
+
+      } & done
+      wait
+    # } done
 python3 ./get_performance.py $db_dir "benchmark_ycsb_a.t1.s1.log"
 cp ${db_dir}/performance_metrics.csv $git_result_dir
 } done
-
 

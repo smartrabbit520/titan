@@ -137,6 +137,7 @@ blob_cache_size=${BLOB_CACHE_SIZE:-$((16 * G))}
 blob_cache_numshardbits=${BLOB_CACHE_NUMSHARDBITS:-6}
 prepopulate_blob_cache=${PREPOPULATE_BLOB_CACHE:-0}
 read_ycsb_file=${READ_YCSB_FILE:-"error"}
+load_ycsb_file=${LOAD_YCSB_FILE:-""}
 blob_file_target_size=${BLOB_FILE_TARGET_SIZE:-$((100 * M))}
 titan_max_background_gc=${TITAN_MAX_BACKGROUND_GC:-1}
 
@@ -222,6 +223,7 @@ PARAMS="\
 PARAMS_GC="--blob_file_discardable_ratio=$blob_file_discardable_ratio \
             --write_buffer_size=$write_buffer_size \
             --read_ycsb_file=$read_ycsb_file \
+            --load_ycsb_file=$load_ycsb_file \
             --blob_file_target_size=$blob_file_target_size \
             --read_systor_files=$read_systor_files \
             --titan_max_background_gc=$titan_max_background_gc \

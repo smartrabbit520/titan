@@ -30,7 +30,7 @@ function call_run_blob() {
 }
 
 now_time=$(date +"%Y-%m-%d-%H:%M:%S")
-now_time=2024-05-01-17:50:31
+# now_time=2024-05-01-17:50:31
 
 num_keys=5000000
 enable_blob_file=1

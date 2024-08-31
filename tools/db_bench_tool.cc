@@ -1023,6 +1023,10 @@ DEFINE_string(
     read_ycsb_file, "error",
     "read_ycsb_file");
 
+DEFINE_string(
+    load_ycsb_file, "error",
+    "load_ycsb_file");
+
 DEFINE_uint64(
     benchmark_write_rate_limit, 0,
     "If non-zero, db_bench will rate-limit the writes going into RocksDB. This "
@@ -4168,18 +4172,35 @@ class Benchmark {
     Status s;
     RandomGenerator gen;
     // read the file
-    std::vector<std::string> files = {
+    std::vector<std::string> files;
+    if (FLAGS_load_ycsb_file.empty() && FLAGS_read_ycsb_file.empty()) {
+      fprintf(stderr, "load_ycsb_file and read_ycsb_file are both empty\n");
+      exit(1);
+    }
+    else if (FLAGS_load_ycsb_file.empty()) {
+      files = {
         FLAGS_read_ycsb_file
-        // "/mnt/nvme0n1/YCSB-C/data/workloada_1024kb_100GB_0.9_zipfian.log_run.formated"
-        // "/mnt/nvme0n1/YCSB-C/data/workloada_16384kb_100GB_0.9_zipfian.log_run.formated"
-        // "/mnt/nvme0n1/YCSB-C/data/workloada_65536kb_100GB_0.9_zipfian.log_run.formated"
-        // "/mnt/nvme0n1/YCSB-C/data/workloada_4096kb_100GB_0.9_zipfian.log_run.formated"
-        // "/mnt/nvme1n1/zt/YCSB-C/data/workloada-load-10000000-100000000.log_run.formated"
-        // "/mnt/nvme1n1/zt/YCSB-C/data/workloada-load-10000000-50000000.log_run.formated"
-        // "/mnt/nvme1n1/zt/ycsb-workload-gen/data/workloada-run-10000000-50000000.log.formated"
-        // "/mnt/nvme1n1/zt/ycsb-workload-gen/data/workloada-load-10000000-10000000.log.formated"
-        // ,"/mnt/nvme1n1/zt/ycsb-workload-gen/data/workloada-run-10000000-10000000.log.formated"
-    };
+      };
+    }
+    else{
+      files = {
+        FLAGS_load_ycsb_file,
+        FLAGS_read_ycsb_file
+      };
+    }
+    // std::vector<std::string> files = {
+    //     FLAGS_load_ycsb_file,
+    //     FLAGS_read_ycsb_file
+    //     // "/mnt/nvme0n1/YCSB-C/data/workloada_1024kb_100GB_0.9_zipfian.log_run.formated"
+    //     // "/mnt/nvme0n1/YCSB-C/data/workloada_16384kb_100GB_0.9_zipfian.log_run.formated"
+    //     // "/mnt/nvme0n1/YCSB-C/data/workloada_65536kb_100GB_0.9_zipfian.log_run.formated"
+    //     // "/mnt/nvme0n1/YCSB-C/data/workloada_4096kb_100GB_0.9_zipfian.log_run.formated"
+    //     // "/mnt/nvme1n1/zt/YCSB-C/data/workloada-load-10000000-100000000.log_run.formated"
+    //     // "/mnt/nvme1n1/zt/YCSB-C/data/workloada-load-10000000-50000000.log_run.formated"
+    //     // "/mnt/nvme1n1/zt/ycsb-workload-gen/data/workloada-run-10000000-50000000.log.formated"
+    //     // "/mnt/nvme1n1/zt/ycsb-workload-gen/data/workloada-load-10000000-10000000.log.formated"
+    //     // ,"/mnt/nvme1n1/zt/ycsb-workload-gen/data/workloada-run-10000000-10000000.log.formated"
+    // };
 
     std::cout << "read files: " << std::endl;
     for (const std::string& file : files) {
@@ -4237,6 +4258,7 @@ class Benchmark {
         }
         thread->stats.FinishedOps(db_with_cfh, db_with_cfh->db, 1, kRead);
       } else if (query_type == "INSERT" || query_type == "UPDATE") {
+        // continue;
         // the Put query
         puts++;
         // if(FLAGS_)
@@ -4258,6 +4280,32 @@ class Benchmark {
                                                       nullptr /*stats*/);
         }
         thread->stats.FinishedOps(db_with_cfh, db_with_cfh->db, 1, kWrite);
+      } else if (query_type == "SCAN"){
+        // the Seek query
+        seek++;
+        int64_t scan_len = std::stoi(data[2]);
+        total_scan_length += scan_len;
+        Iterator* iter;
+        if (FLAGS_num_column_families > 1) {
+          iter = db_with_cfh->db->NewIterator(read_options,
+                                            db_with_cfh->GetCfh(key.size()));
+        } else {
+          iter = db_with_cfh->db->NewIterator(read_options);
+        }
+        
+        int64_t count = 0;
+        for (iter->Seek(key); count < scan_len && iter->Valid(); iter->Next()) {
+          count++;
+          std::string k = iter->key().ToString();
+          std::string val = iter->value().ToString();
+          bytes += iter->key().size() + iter->value().size();
+        }
+        delete iter;
+
+        if (count == scan_len) {
+          seek_found++;
+        }
+        thread->stats.FinishedOps(db_with_cfh, db_with_cfh->db, 1, kSeek);
       }
     }
     char msg[256];
