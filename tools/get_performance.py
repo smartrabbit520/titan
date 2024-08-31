@@ -7,18 +7,8 @@ import subprocess
 # data_dir="/mnt/nvme1n1/xq/mlsm/database_comparison/titan_3.16_ycsb_a_with_param"
 data_dir = sys.argv[1]
 
-if "ycsb_a" in data_dir:
+if "ycsb" in data_dir:
     benchmark_log_name = "benchmark_ycsb_a.t1.s1.log"
-elif "ycsb_b" in data_dir:
-    benchmark_log_name = "benchmark_ycsb_b.t1.s1.log"
-elif "ycsb_c" in data_dir:
-    benchmark_log_name = "benchmark_ycsb_c.t1.s1.log"
-elif "ycsb_d" in data_dir:
-    benchmark_log_name = "benchmark_ycsb_d.t1.s1.log"
-elif "ycsb_e" in data_dir:
-    benchmark_log_name = "benchmark_ycsb_e.t1.s1.log"
-elif "ycsb_f" in data_dir:
-    benchmark_log_name = "benchmark_ycsb_f.t1.s1.log"
 elif "systor" in data_dir:
     benchmark_log_name = "benchmark_systor.t1.s1.log"
 elif "tencent" in data_dir:
